@@ -18,6 +18,7 @@ import { pushToast } from './state/toast';
 const StatusPage = lazy(() => import('./pages/StatusPage').then((mod) => ({ default: mod.StatusPage })));
 const BasicPage = lazy(() => import('./pages/BasicPage').then((mod) => ({ default: mod.BasicPage })));
 const SearchPage = lazy(() => import('./pages/SearchPage').then((mod) => ({ default: mod.SearchPage })));
+const WebhookPage = lazy(() => import('./pages/WebhookPage').then((mod) => ({ default: mod.WebhookPage })));
 const MemoryPage = lazy(() => import('./pages/MemoryPage').then((mod) => ({ default: mod.MemoryPage })));
 const LlmPage = lazy(() => import('./pages/LlmPage').then((mod) => ({ default: mod.LlmPage })));
 const ImPage = lazy(() => import('./pages/ImPage').then((mod) => ({ default: mod.ImPage })));
@@ -237,6 +238,9 @@ const App: Component = () => {
               </Show>
               <Show when={currentTab() === 'search'}>
                 <SearchPage onRestartRequest={() => void handleRestartRequest({ reloadOnSuccess: true })} />
+              </Show>
+              <Show when={currentTab() === 'webhook'}>
+                <WebhookPage onRestartRequest={() => void handleRestartRequest({ reloadOnSuccess: true })} />
               </Show>
               <Show when={currentTab() === 'memory'}>
                 <MemoryPage />

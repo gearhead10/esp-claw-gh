@@ -62,6 +62,9 @@
 #if CONFIG_APP_CLAW_CAP_WEB_SEARCH
 #include "cap_web_search.h"
 #endif
+#if CONFIG_APP_CLAW_CAP_WEBHOOK
+#include "cap_webhook.h"
+#endif
 #include "claw_cap.h"
 #include "claw_memory.h"
 #include "esp_check.h"
@@ -518,6 +521,23 @@ static esp_err_t app_cap_register_web_search(const app_claw_config_t *config,
 }
 #endif
 
+#if CONFIG_APP_CLAW_CAP_WEBHOOK
+static esp_err_t app_cap_prepare_webhook(const app_claw_config_t *config,
+                                         const app_claw_storage_paths_t *paths)
+{
+    (void)paths;
+    return cap_webhook_set_registry(config->webhooks_json);
+}
+
+static esp_err_t app_cap_register_webhook(const app_claw_config_t *config,
+                                          const app_claw_storage_paths_t *paths)
+{
+    (void)config;
+    (void)paths;
+    return cap_webhook_register_group();
+}
+#endif
+
 #if CONFIG_APP_CLAW_CAP_ROUTER_MGR
 static esp_err_t app_cap_register_router_mgr(const app_claw_config_t *config,
                                              const app_claw_storage_paths_t *paths)
@@ -587,6 +607,9 @@ static const app_capability_group_entry_t s_capability_group_entries[] = {
 #if CONFIG_APP_CLAW_CAP_WEB_SEARCH
     { "cap_web_search", "Web Search", "Register web search cap", true, app_cap_prepare_web_search, app_cap_register_web_search },
 #endif
+#if CONFIG_APP_CLAW_CAP_WEBHOOK
+    { "cap_webhook", "Webhook", "Register webhook cap", true, app_cap_prepare_webhook, app_cap_register_webhook },
+#endif
 #if CONFIG_APP_CLAW_CAP_ROUTER_MGR
     { "cap_router_mgr", "Router Manager", "Register router manager cap", true, NULL, app_cap_register_router_mgr },
 #endif
@@ -642,7 +665,10 @@ static const app_capability_group_info_t s_capability_group_infos[] = {
     { "cap_llm_inspect", "LLM Inspect", false },
 #endif
 #if CONFIG_APP_CLAW_CAP_WEB_SEARCH
-    { "cap_web_search", "Web Search", false },
+    { "cap_web_search", "Web Search", true },
+#endif
+#if CONFIG_APP_CLAW_CAP_WEBHOOK
+    { "cap_webhook", "Webhook", true },
 #endif
 #if CONFIG_APP_CLAW_CAP_ROUTER_MGR
     { "cap_router_mgr", "Router Manager", false },

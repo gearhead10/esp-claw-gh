@@ -30,7 +30,7 @@ Do not retry, change arguments, or run another light script in the same turn unl
   "properties": {
     "io": {
       "type": "integer",
-      "default": 38,
+      "default": 48,
       "minimum": 0
     },
     "led_count": {
@@ -83,7 +83,7 @@ Do not retry, change arguments, or run another light script in the same turn unl
   "properties": {
     "io": {
       "type": "integer",
-      "default": 38,
+      "default": 48,
       "minimum": 0
     },
     "enabled": {

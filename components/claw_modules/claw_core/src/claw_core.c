@@ -110,6 +110,72 @@ static char *dup_string(const char *src)
     return strdup(src);
 }
 
+/* Strip inline <think>...</think> blocks before the text reaches IM/Web IM/MCP.
+ * Some reasoning models (DeepSeek R1, Qwen3 reasoning, local backends without
+ * structured separation) leak the chain of thought into the regular content
+ * field instead of the OpenAI-style reasoning_content field. */
+static char *strip_think_tags(const char *src, bool *did_strip)
+{
+    static const char OPEN[]  = "<think>";
+    static const char CLOSE[] = "</think>";
+    const size_t OPEN_LEN  = sizeof(OPEN) - 1;
+    const size_t CLOSE_LEN = sizeof(CLOSE) - 1;
+
+    if (did_strip) {
+        *did_strip = false;
+    }
+    if (!src) {
+        return NULL;
+    }
+
+    const char *first_open = strstr(src, OPEN);
+    if (!first_open) {
+        return strdup(src);
+    }
+
+    size_t src_len = strlen(src);
+    char *out = malloc(src_len + 1);
+    if (!out) {
+        return NULL;
+    }
+
+    const char *cursor = src;
+    const char *open = first_open;
+    char *write = out;
+    bool stripped = false;
+
+    while (open) {
+        const char *close = strstr(open + OPEN_LEN, CLOSE);
+        if (!close) {
+            /* Unclosed <think>: keep remainder untouched rather than swallow
+             * a partially streamed response. */
+            break;
+        }
+        size_t prefix = (size_t)(open - cursor);
+        memcpy(write, cursor, prefix);
+        write += prefix;
+        stripped = true;
+
+        cursor = close + CLOSE_LEN;
+        /* Eat one run of leading whitespace so we don't leave a blank line
+         * where the think block used to live. */
+        while (*cursor == ' ' || *cursor == '\n' || *cursor == '\r' || *cursor == '\t') {
+            cursor++;
+        }
+        open = strstr(cursor, OPEN);
+    }
+
+    size_t tail = strlen(cursor);
+    memcpy(write, cursor, tail);
+    write += tail;
+    *write = '\0';
+
+    if (did_strip) {
+        *did_strip = stripped;
+    }
+    return out;
+}
+
 static char *dup_printf(const char *fmt, ...)
 {
     va_list args;
@@ -970,7 +1036,15 @@ static void claw_core_finish_from_plain_text(uint32_t request_id,
 
     response->completion_type = CLAW_CORE_COMPLETION_DONE;
     free(response->text);
+#if CONFIG_CLAW_CORE_STRIP_THINK_TAGS
+    bool stripped = false;
+    response->text = strip_think_tags(text, &stripped);
+    if (stripped) {
+        ESP_LOGD(TAG, "completion request=%" PRIu32 " stripped <think> block(s)", request_id);
+    }
+#else
     response->text = dup_string(text);
+#endif
     free(response->error_message);
     response->error_message = NULL;
 

@@ -19,4 +19,14 @@ config CLAW_CORE_STAGE_VERBOSITY_VERBOSE
 
 endchoice
 
+config CLAW_CORE_STRIP_THINK_TAGS
+    bool "Strip <think>...</think> blocks from user-facing responses"
+    default y
+    help
+        When the LLM emits inline reasoning tags (DeepSeek R1, Qwen3 reasoning,
+        local backends without structured separation), strip them from the final
+        text before delivering to Web IM, Telegram, QQ, MCP server, etc.
+        Reasoning that comes through the structured 'reasoning_content' field
+        is unaffected by this option.
+
 endmenu

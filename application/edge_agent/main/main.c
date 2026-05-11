@@ -24,6 +24,9 @@
 #if CONFIG_APP_CLAW_CAP_IM_WECHAT
 #include "cap_im_wechat.h"
 #endif
+#if CONFIG_APP_MDNS_ENABLE
+#include "mdns.h"
+#endif
 #include "app_config.h"
 
 #define APP_FATFS_PARTITION_LABEL "storage"
@@ -225,6 +228,27 @@ static esp_err_t init_nvs(void)
     return err;
 }
 
+#if CONFIG_APP_MDNS_ENABLE
+static void init_mdns(void)
+{
+    esp_err_t err = mdns_init();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "mDNS init failed: %s", esp_err_to_name(err));
+        return;
+    }
+    if (mdns_hostname_set(CONFIG_APP_MDNS_HOSTNAME) != ESP_OK) {
+        ESP_LOGW(TAG, "mDNS hostname set failed");
+    }
+    if (mdns_instance_name_set(CONFIG_APP_MDNS_INSTANCE_NAME) != ESP_OK) {
+        ESP_LOGW(TAG, "mDNS instance name set failed");
+    }
+    if (mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0) != ESP_OK) {
+        ESP_LOGW(TAG, "mDNS HTTP service register failed");
+    }
+    ESP_LOGI(TAG, "mDNS responder up at %s.local", CONFIG_APP_MDNS_HOSTNAME);
+}
+#endif
+
 static esp_err_t init_fatfs(void)
 {
     esp_vfs_fat_mount_config_t mount_config = {
@@ -360,11 +384,18 @@ void app_main(void)
         .ap_ssid = s_config->ap_ssid[0] ? s_config->ap_ssid : NULL,
         .ap_password = s_config->ap_password[0] ? s_config->ap_password : NULL,
         .ap_behavior = s_config->ap_behavior,
+#if CONFIG_APP_WIFI_AP_AUTO_CLOSE
+        .ap_auto_close = true,
+        .ap_auto_close_delay_ms = CONFIG_APP_WIFI_AP_AUTO_CLOSE_DELAY_MS,
+#endif
     });
     if (wifi_err != ESP_OK) {
         ESP_LOGE(TAG, "Wi-Fi start failed: %s", esp_err_to_name(wifi_err));
     } else {
         ESP_ERROR_CHECK(http_server_start());
+#if CONFIG_APP_MDNS_ENABLE
+        init_mdns();
+#endif
         if (captive_dns_start(&(captive_dns_config_t) {
                 .ap_netif = wifi_manager_get_ap_netif(),
                 .configure_dhcp_dns = true,
@@ -392,6 +423,8 @@ void app_main(void)
                      portal_auth,
                      status.ap_ip,
                      status.ap_ip);
+        } else {
+            ESP_LOGI(TAG, "STA up at %s, provisioning portal closed", status.sta_ip);
         }
     }
 

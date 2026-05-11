@@ -10,6 +10,7 @@ import {
   Settings,
   SquareFunction,
   WifiPen,
+  Webhook,
 } from 'lucide-solid';
 import { createMemo, createSignal, For, Show, type Component } from 'solid-js';
 import { t } from '../../i18n';
@@ -24,6 +25,7 @@ const IconWifi: Component = () => <WifiPen class={iconClass} />;
 const IconLlm: Component = () => <Bot class={iconClass} />;
 const IconIm: Component = () => <MessageSquareCode class={iconClass} />;
 const IconSearch: Component = () => <Search class={iconClass} />;
+const IconWebhook: Component = () => <Webhook class={iconClass} />;
 const IconMemory: Component = () => <DatabaseZap class={iconClass} />;
 const IconCaps: Component = () => <Blocks class={iconClass} />;
 const IconSkills: Component = () => <SquareFunction class={iconClass} />;
@@ -39,6 +41,7 @@ export type LeafNode = {
     | 'navLlm'
     | 'navIm'
     | 'navSearch'
+    | 'navWebhook'
     | 'navMemory'
     | 'navCapabilities'
     | 'navLuaModules'
@@ -67,6 +70,7 @@ export const NAV_TREE: NavNode[] = [
       { kind: 'leaf', id: 'llm', labelKey: 'navLlm', icon: IconLlm },
       { kind: 'leaf', id: 'im', labelKey: 'navIm', icon: IconIm },
       { kind: 'leaf', id: 'search', labelKey: 'navSearch', icon: IconSearch },
+      { kind: 'leaf', id: 'webhook', labelKey: 'navWebhook', icon: IconWebhook },
     ],
   },
   { kind: 'leaf', id: 'memory', labelKey: 'navMemory', icon: IconMemory },

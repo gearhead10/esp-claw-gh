@@ -60,6 +60,33 @@ static esp_err_t dup_tool_call_string(cJSON *json, char **out_value)
     return *out_value ? ESP_OK : ESP_ERR_NO_MEM;
 }
 
+/* Canonicalize a tool-call arguments string from the LLM. Some smaller
+ * models emit malformed serialized JSON (trailing whitespace, extra braces,
+ * two concatenated objects, stray characters), and when we forward those
+ * bytes back to the API in the next turn the provider rejects the whole
+ * conversation with "Extra data line 1 column N". Re-encoding through cJSON
+ * normalizes the payload and discards anything past the first valid JSON
+ * value. If the input is unparseable, fall back to a plain copy so the
+ * downstream capability can still reject it with a clear error. */
+static esp_err_t dup_tool_call_args_canonical(cJSON *json, char **out_value)
+{
+    if (!out_value || !json || !cJSON_IsString(json) || !json->valuestring) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    cJSON *parsed = cJSON_Parse(json->valuestring);
+    if (!parsed) {
+        *out_value = strdup(json->valuestring);
+        return *out_value ? ESP_OK : ESP_ERR_NO_MEM;
+    }
+    char *canonical = cJSON_PrintUnformatted(parsed);
+    cJSON_Delete(parsed);
+    if (!canonical) {
+        return ESP_ERR_NO_MEM;
+    }
+    *out_value = canonical;
+    return ESP_OK;
+}
+
 static char *join_url(const char *base_url, const char *path)
 {
     bool base_has_slash;
@@ -168,7 +195,7 @@ static esp_err_t parse_chat_response(const char *body,
                 err = dup_tool_call_string(name_json, &dst->name);
             }
             if (err == ESP_OK) {
-                err = dup_tool_call_string(args_json, &dst->arguments_json);
+                err = dup_tool_call_args_canonical(args_json, &dst->arguments_json);
             }
             if (err != ESP_OK) {
                 cJSON_Delete(root);

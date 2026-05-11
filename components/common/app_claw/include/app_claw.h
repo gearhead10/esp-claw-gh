@@ -20,6 +20,7 @@ extern "C" {
 #define APP_CLAW_TIMEOUT_LEN          16
 #define APP_CLAW_PATH_LEN             64
 #define APP_CLAW_FILE_PATH_LEN        96
+#define APP_CLAW_WEBHOOKS_JSON_LEN    2048
 
 typedef struct {
     char llm_api_key[APP_CLAW_STR_LEN];
@@ -49,6 +50,7 @@ typedef struct {
     char enabled_cap_groups[APP_CLAW_STR_LEN];
     char llm_visible_cap_groups[APP_CLAW_STR_LEN];
     char enabled_lua_modules[APP_CLAW_STR_LEN];
+    char webhooks_json[APP_CLAW_WEBHOOKS_JSON_LEN];
 } app_claw_config_t;
 
 typedef struct {

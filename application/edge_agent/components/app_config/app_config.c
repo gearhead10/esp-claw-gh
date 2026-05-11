@@ -54,12 +54,21 @@ typedef struct {
 #define APP_DEFAULT_WECHAT_BASE_URL          "https://ilinkai.weixin.qq.com"
 #define APP_DEFAULT_WECHAT_CDN_BASE_URL      "https://novac2c.cdn.weixin.qq.com/c2c"
 #define APP_DEFAULT_WECHAT_ACCOUNT_ID        "default"
+#ifdef CONFIG_APP_SEARCH_BRAVE_KEY
+#define APP_DEFAULT_SEARCH_BRAVE_KEY         CONFIG_APP_SEARCH_BRAVE_KEY
+#else
 #define APP_DEFAULT_SEARCH_BRAVE_KEY         ""
+#endif
+#ifdef CONFIG_APP_SEARCH_TAVILY_KEY
+#define APP_DEFAULT_SEARCH_TAVILY_KEY        CONFIG_APP_SEARCH_TAVILY_KEY
+#else
 #define APP_DEFAULT_SEARCH_TAVILY_KEY        ""
+#endif
 #define APP_DEFAULT_ENABLED_CAP_GROUPS       ""
 #define APP_DEFAULT_LLM_VISIBLE_CAP_GROUPS   ""
 #define APP_DEFAULT_ENABLED_LUA_MODULES      ""
 #define APP_DEFAULT_TIME_TIMEZONE            "CST-8"
+#define APP_DEFAULT_WEBHOOKS_JSON            "[]"
 
 static const app_config_field_t s_fields[] = {
     APP_CONFIG_FIELD(wifi_ssid, "wifi_ssid", APP_WIFI_SSID),
@@ -95,6 +104,7 @@ static const app_config_field_t s_fields[] = {
     APP_CONFIG_FIELD(llm_visible_cap_groups, "vis_cap_groups", APP_DEFAULT_LLM_VISIBLE_CAP_GROUPS),
     APP_CONFIG_FIELD(enabled_lua_modules, "en_lua_mods", APP_DEFAULT_ENABLED_LUA_MODULES),
     APP_CONFIG_FIELD(time_timezone, "time_timezone", APP_DEFAULT_TIME_TIMEZONE),
+    APP_CONFIG_FIELD(webhooks_json, "webhooks_json", APP_DEFAULT_WEBHOOKS_JSON),
 };
 
 // for backward compatibility, migrate from old settings to new settings
@@ -569,6 +579,7 @@ void app_config_to_claw(const app_config_t *config, app_claw_config_t *out)
     strlcpy(out->enabled_cap_groups, config->enabled_cap_groups, sizeof(out->enabled_cap_groups));
     strlcpy(out->llm_visible_cap_groups, config->llm_visible_cap_groups, sizeof(out->llm_visible_cap_groups));
     strlcpy(out->enabled_lua_modules, config->enabled_lua_modules, sizeof(out->enabled_lua_modules));
+    strlcpy(out->webhooks_json, config->webhooks_json, sizeof(out->webhooks_json));
 }
 
 const char *app_config_get_timezone(const app_config_t *config)

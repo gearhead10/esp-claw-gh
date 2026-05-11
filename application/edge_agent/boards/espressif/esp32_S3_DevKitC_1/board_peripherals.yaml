@@ -6,7 +6,7 @@ peripherals:
     type: rmt
     role: tx
     config:
-      gpio_num: 38
+      gpio_num: 48
       clk_src: RMT_CLK_SRC_DEFAULT
       resolution_hz: 10000000
       mem_block_symbols: 64

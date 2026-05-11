@@ -44,6 +44,72 @@ menu "Default Wi-Fi Settings"
             falls back to pure AP mode and waits for the user to provision
             new credentials.
 
+    config APP_WIFI_AP_AUTO_CLOSE
+        bool "Close provisioning AP after STA connects"
+        default y
+        help
+            When enabled, the SoftAP used for provisioning is shut down
+            shortly after the device successfully joins the configured
+            STA network. This reduces the attack surface of the always-on
+            captive portal. The AP is reopened automatically if STA
+            credentials become invalid (after APP_WIFI_MAX_RETRY failures).
+
+    config APP_WIFI_AP_AUTO_CLOSE_DELAY_MS
+        int "Grace period before closing the AP (ms)"
+        depends on APP_WIFI_AP_AUTO_CLOSE
+        range 0 60000
+        default 3000
+        help
+            Time to keep the SoftAP up after STA gets an IP, so any client
+            still on the captive portal can receive its last response
+            before the AP goes away.
+
+endmenu
+
+menu "mDNS Settings"
+
+    config APP_MDNS_ENABLE
+        bool "Enable mDNS responder"
+        default y
+        help
+            Advertise the device on the local network via mDNS so it can
+            be reached at <hostname>.local without knowing its IP.
+
+    config APP_MDNS_HOSTNAME
+        string "mDNS hostname"
+        depends on APP_MDNS_ENABLE
+        default "esp-claw"
+        help
+            Hostname used by the mDNS responder. The device becomes
+            reachable at "<hostname>.local" on the same network.
+
+    config APP_MDNS_INSTANCE_NAME
+        string "mDNS instance name"
+        depends on APP_MDNS_ENABLE
+        default "ESP-Claw Edge Agent"
+        help
+            Friendly instance name advertised alongside the HTTP service.
+
+endmenu
+
+menu "Default Web Search Settings"
+
+    config APP_SEARCH_TAVILY_KEY
+        string "Default Tavily API key"
+        default ""
+        help
+            Compile-time default for the Tavily search API key. Used to
+            populate app settings on first boot if NVS is empty. Leave
+            blank to require runtime configuration via the web UI.
+
+    config APP_SEARCH_BRAVE_KEY
+        string "Default Brave Search API key"
+        default ""
+        help
+            Compile-time default for the Brave Search API key. Used to
+            populate app settings on first boot if NVS is empty. Leave
+            blank to require runtime configuration via the web UI.
+
 endmenu
 
 menu "Default Search Settings"

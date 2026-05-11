@@ -1,5 +1,7 @@
 -- --------------------------------------------------------------
 -- Light LED strip pixels with a configurable color.
+-- Defaults match the ESP32-S3-DevKitC-1 v1.0 onboard WS2812 (GPIO48).
+-- Keeps debug prints so the serial log shows the applied r/g/b values.
 -- --------------------------------------------------------------
 
 -- 1. Requires
@@ -7,7 +9,7 @@ local arg_schema = require("arg_schema")
 local led_strip = require("led_strip")
 
 -- 2. Constants
-local DEFAULT_IO = 38
+local DEFAULT_IO = 48
 local DEFAULT_LED_COUNT = 1
 local DEFAULT_ENABLED = true
 local DEFAULT_BRIGHTNESS = 255
@@ -37,6 +39,11 @@ local ARG_SCHEMA = {
 
 local ctx = arg_schema.parse(args, ARG_SCHEMA)
 
+print(string.format("[light_switch][DBG] parsed: io=%s led_count=%s enabled=%s brightness=%s r=%s g=%s b=%s",
+  tostring(ctx.io), tostring(ctx.led_count), tostring(ctx.enabled),
+  tostring(ctx.brightness),
+  tostring(ctx.color and ctx.color.r), tostring(ctx.color and ctx.color.g), tostring(ctx.color and ctx.color.b)))
+
 -- 4. Module-local state
 local strip = nil
 
@@ -53,7 +60,7 @@ local function scale_channel(channel, brightness)
 end
 
 local function apply_color(r, g, b)
-  -- Apply the same color to every pixel so multi-pixel strips respond as one light.
+  print(string.format("[light_switch][DBG] applying r=%d g=%d b=%d to %d pixel(s) on io=%d", r, g, b, ctx.led_count, ctx.io))
   for index = PIXEL_INDEX, ctx.led_count - 1 do
     strip:set_pixel(index, r, g, b)
   end

@@ -22,6 +22,7 @@ export const zhCn: Dict = {
   navLlm: 'LLM 设置',
   navIm: 'IM 设置',
   navSearch: '网络搜索设置',
+  navWebhook: 'Webhook',
   navMemory: '记忆管理',
   navCapabilities: 'Capabilities 管理',
   navLuaModules: 'Lua 模块管理',
@@ -168,6 +169,17 @@ export const zhCn: Dict = {
   searchTavilyKey: 'Tavily API Key',
   searchHttpAllowlist: 'HTTP 白名单（域名/IP，逗号分隔）',
   searchHttpAllowlistPlaceholder: 'api.example.com,*.example.org,203.0.113.10',
+
+  sectionWebhook: '出站 Webhook',
+  webhookNote:
+    '预先登记 LLM 可按名称触发的 HTTP 端点（Slack、Discord、IFTTT、n8n、Home Assistant 等）。Agent 无法编造 URL，只能调用此处列出的条目。',
+  webhookEditorLabel: 'Webhook 列表（JSON）',
+  webhookEditorHelp:
+    '编辑下方 JSON 数组。每条目至少需要 name 和 url 字段。可选字段：method（默认 POST）、description。',
+  webhookFormatBtn: '格式化 JSON',
+  webhookAddExample: '插入示例条目',
+  webhookInvalidJson: 'JSON 无效：{error}',
+  webhookSummary: '已配置 {count} 个 Webhook',
 
   sectionCapabilities: 'Capability Group',
   capabilitiesDescription:

@@ -1,0 +1,10 @@
+idf_component_register(
+    SRCS
+        "src/cap_webhook.c"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        claw_cap
+        esp_http_client
+        json
+)

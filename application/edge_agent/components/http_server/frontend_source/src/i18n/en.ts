@@ -21,6 +21,7 @@ export const en = {
   navLlm: 'LLM',
   navIm: 'IM',
   navSearch: 'Web Search',
+  navWebhook: 'Webhooks',
   navMemory: 'Memory',
   navCapabilities: 'Capabilities',
   navLuaModules: 'Lua Modules',
@@ -175,6 +176,17 @@ export const en = {
   searchTavilyKey: 'Tavily API Key',
   searchHttpAllowlist: 'HTTP allowlist (domains/IP, comma-separated)',
   searchHttpAllowlistPlaceholder: 'api.example.com,*.example.org,203.0.113.10',
+
+  sectionWebhook: 'Outbound Webhooks',
+  webhookNote:
+    'Register pre-approved HTTP endpoints that the LLM can trigger by name (Slack, Discord, IFTTT, n8n, Home Assistant…). The agent cannot invent URLs — it can only fire entries listed here.',
+  webhookEditorLabel: 'Webhook registry (JSON)',
+  webhookEditorHelp:
+    'Edit the JSON array below. Each entry needs at least a name and a url. Optional fields: method (default "POST"), description.',
+  webhookFormatBtn: 'Format JSON',
+  webhookAddExample: 'Insert example entry',
+  webhookInvalidJson: 'Invalid JSON: {error}',
+  webhookSummary: '{count} webhook(s) configured',
 
   sectionCapabilities: 'Capability Groups',
   capabilitiesDescription:

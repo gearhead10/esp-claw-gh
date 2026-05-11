@@ -74,6 +74,11 @@ dependencies:
       - if: $CONFIG{APP_CLAW_CAP_WEB_SEARCH} == True
     path: ../../claw_capabilities/cap_web_search
 
+  cap_webhook:
+    rules:
+      - if: $CONFIG{APP_CLAW_CAP_WEBHOOK} == True
+    path: ../../claw_capabilities/cap_webhook
+
   claw_cap:
     path: ../../claw_modules/claw_cap
 
