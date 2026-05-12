@@ -362,6 +362,38 @@ export type WebImStatusResponse = {
   bound?: boolean;
 };
 
+export type SystemTask = {
+  id: number;
+  name: string;
+  state: string;
+  priority: number;
+  base_priority: number;
+  stack_free_bytes: number;
+  runtime_counter: number;
+  core_id?: number;
+};
+
+export type SystemSnapshot = {
+  uptime_ms: number;
+  free_heap_bytes: number;
+  min_free_heap_bytes: number;
+  free_internal_bytes: number;
+  total_internal_bytes: number;
+  free_psram_bytes: number;
+  total_psram_bytes: number;
+  task_count: number;
+  reset_reason: string;
+  cpu_cores: number;
+  chip_revision: number;
+  total_runtime_counter: number;
+  runtime_stats_available: boolean;
+  tasks: SystemTask[];
+};
+
+export async function fetchSystemTasks(signal?: AbortSignal) {
+  return request<SystemSnapshot>('/api/system/tasks', { signal }, 'Failed to load system tasks');
+}
+
 export async function fetchWebimStatus() {
   return request<WebImStatusResponse>('/api/webim/status', undefined, 'Failed to read Web IM status');
 }

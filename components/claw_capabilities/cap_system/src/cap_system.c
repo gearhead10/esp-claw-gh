@@ -550,9 +550,11 @@ static const claw_cap_descriptor_t s_system_descriptors[] = {
         .id = "get_cpu_usage",
         .name = "get_cpu_usage",
         .family = "system",
-        .description = "Get overall CPU usage derived from FreeRTOS run time statistics.",
+        .description = "Return a single aggregate CPU% number. Superseded for LLM use by list_top_cpu_tasks which gives both the global and per-task numbers.",
         .kind = CLAW_CAP_KIND_CALLABLE,
-        .cap_flags = CLAW_CAP_FLAG_CALLABLE_BY_LLM,
+        /* Removed CLAW_CAP_FLAG_CALLABLE_BY_LLM so the LLM stops short-circuiting
+         * on this less informative tool. Still invocable by internal code paths. */
+        .cap_flags = 0,
         .input_schema_json = "{\"type\":\"object\",\"properties\":{}}",
         .execute = cap_system_execute_get_cpu,
     },

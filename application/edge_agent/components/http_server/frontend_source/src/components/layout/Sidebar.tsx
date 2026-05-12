@@ -3,6 +3,7 @@ import {
   AudioLines,
   Blocks,
   Bot,
+  Cpu,
   DatabaseZap,
   Folder,
   MessageSquareCode,
@@ -21,6 +22,7 @@ import { StatusSummary } from './StatusBar';
 const iconClass = 'w-4 h-4 shrink-0';
 
 const IconStatus: Component = () => <Activity class={iconClass} />;
+const IconSystem: Component = () => <Cpu class={iconClass} />;
 const IconGear: Component = () => <Settings class={iconClass} />;
 const IconWifi: Component = () => <WifiPen class={iconClass} />;
 const IconLlm: Component = () => <Bot class={iconClass} />;
@@ -39,6 +41,7 @@ export type LeafNode = {
   id: TabId;
   labelKey:
     | 'navStatus'
+    | 'navSystem'
     | 'navBasic'
     | 'navLlm'
     | 'navStt'
@@ -63,6 +66,7 @@ export type NavNode = LeafNode | GroupNode;
 
 export const NAV_TREE: NavNode[] = [
   { kind: 'leaf', id: 'status', labelKey: 'navStatus', icon: IconStatus },
+  { kind: 'leaf', id: 'system', labelKey: 'navSystem', icon: IconSystem },
   {
     kind: 'group',
     id: 'basic-settings',

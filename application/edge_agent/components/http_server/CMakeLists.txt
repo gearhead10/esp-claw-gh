@@ -19,6 +19,7 @@ set(http_server_srcs
     "http_server_config_api.c"
     "http_server_lua_modules_api.c"
     "http_server_status_api.c"
+    "http_server_system_api.c"
     "http_server_files_api.c"
     "http_server_wechat_api.c"
     "http_server_webim_api.c"

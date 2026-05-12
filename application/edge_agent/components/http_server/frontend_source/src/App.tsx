@@ -16,6 +16,7 @@ import { reloadCapabilities, reloadLuaModules, reloadStatus } from './state/conf
 import { pushToast } from './state/toast';
 
 const StatusPage = lazy(() => import('./pages/StatusPage').then((mod) => ({ default: mod.StatusPage })));
+const SystemPage = lazy(() => import('./pages/SystemPage').then((mod) => ({ default: mod.SystemPage })));
 const BasicPage = lazy(() => import('./pages/BasicPage').then((mod) => ({ default: mod.BasicPage })));
 const SearchPage = lazy(() => import('./pages/SearchPage').then((mod) => ({ default: mod.SearchPage })));
 const WebhookPage = lazy(() => import('./pages/WebhookPage').then((mod) => ({ default: mod.WebhookPage })));
@@ -227,6 +228,9 @@ const App: Component = () => {
             >
               <Show when={currentTab() === 'status'}>
                 <StatusPage onRestartRequest={() => void handleRestartRequest()} />
+              </Show>
+              <Show when={currentTab() === 'system'}>
+                <SystemPage />
               </Show>
               <Show when={currentTab() === 'basic'}>
                 <BasicPage onRestartRequest={() => void handleRestartRequest({ reloadOnSuccess: true })} />
