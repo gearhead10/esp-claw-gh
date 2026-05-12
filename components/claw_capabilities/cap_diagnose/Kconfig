@@ -1,0 +1,19 @@
+menu "Claw Diagnose Capability"
+
+config CLAW_CAP_DIAGNOSE_RING_CAPACITY
+    int "In-memory log ring capacity (entries)"
+    default 64
+    range 16 256
+    help
+        How many recent log lines are retained in heap for cap_diagnose
+        to surface to the LLM. Older entries are overwritten when full.
+
+config CLAW_CAP_DIAGNOSE_MAX_LINE_LEN
+    int "Per-log-line max length (bytes)"
+    default 240
+    range 96 512
+    help
+        Each captured log line is truncated to this length. Lower values
+        reduce heap pressure at the cost of losing tail context.
+
+endmenu

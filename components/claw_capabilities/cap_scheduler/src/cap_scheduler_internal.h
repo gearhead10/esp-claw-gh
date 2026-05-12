@@ -64,6 +64,8 @@ esp_err_t cap_scheduler_load_items(const char *path,
                                    size_t max_items,
                                    size_t *out_count);
 esp_err_t cap_scheduler_parse_item_json_string(const char *json, cap_scheduler_item_t *item);
+void cap_scheduler_parse_item_json(const cJSON *node, cap_scheduler_item_t *item);
+void cap_scheduler_parse_item_fields(const cJSON *node, cap_scheduler_item_t *item);
 esp_err_t cap_scheduler_save_items(const char *path,
                                    const cap_scheduler_entry_t *entries,
                                    size_t entry_count);

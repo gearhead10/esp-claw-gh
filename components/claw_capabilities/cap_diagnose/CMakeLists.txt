@@ -1,0 +1,12 @@
+idf_component_register(
+    SRCS
+        "src/cap_diagnose.c"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        claw_cap
+        json
+    PRIV_REQUIRES
+        esp_timer
+        esp_system
+)

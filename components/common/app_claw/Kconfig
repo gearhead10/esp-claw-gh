@@ -121,6 +121,14 @@ menu "App Claw Config"
                 Enable the system capability and keep app_claw's direct dependency
                 on cap_system.
 
+        config APP_CLAW_CAP_DIAGNOSE
+            bool "Enable diagnose capability"
+            default y
+            help
+                Enable the diagnose capability that gives the LLM a tool to read
+                recent ESP_LOG entries (logs_recent) and a system health snapshot
+                (system_state). Useful for self-debugging when other tools fail.
+
         config APP_CLAW_CAP_TIME
             bool "Enable time capability"
             default y
@@ -149,6 +157,14 @@ menu "App Claw Config"
                 Enable the webhook capability that lets the LLM trigger outbound
                 HTTP requests to user-configured endpoints. The list of webhooks
                 is parametrizable via the device web UI under the "webhook" section.
+
+        config APP_CLAW_AUDIO_STT
+            bool "Enable inbound speech-to-text"
+            default y
+            help
+                Build the audio_stt module and let IM platforms (Telegram voice
+                notes, audio attachments) be auto-transcribed and injected as
+                text messages into the agent. Configurable from the web UI.
 
         config APP_CLAW_CAP_ROUTER_MGR
             bool "Enable router manager capability"

@@ -655,7 +655,7 @@ static bool cap_scheduler_status_from_string(const char *value, cap_scheduler_st
     return false;
 }
 
-static void cap_scheduler_parse_item_json(const cJSON *node, cap_scheduler_item_t *item)
+void cap_scheduler_parse_item_json(const cJSON *node, cap_scheduler_item_t *item)
 {
     const cJSON *value;
 
@@ -735,6 +735,93 @@ static void cap_scheduler_parse_item_json(const cJSON *node, cap_scheduler_item_
     }
 
     cap_scheduler_apply_defaults(item);
+}
+
+/* Field-only variant: reads JSON fields without applying defaults so callers
+ * that want to merge in ctx-aware values (e.g. chat_id, source_channel from
+ * the current LLM call context) can do so before defaults overwrite the
+ * blanks. Disk-load paths keep using cap_scheduler_parse_item_json which
+ * applies defaults at the end. */
+void cap_scheduler_parse_item_fields(const cJSON *node, cap_scheduler_item_t *item)
+{
+    const cJSON *value;
+
+    if (!node || !item) {
+        return;
+    }
+    memset(item, 0, sizeof(*item));
+    item->enabled = true;
+
+    value = cJSON_GetObjectItemCaseSensitive(node, "id");
+    if (cJSON_IsString(value)) {
+        strlcpy(item->id, value->valuestring, sizeof(item->id));
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "enabled");
+    if (cJSON_IsBool(value)) {
+        item->enabled = cJSON_IsTrue(value);
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "kind");
+    if (cJSON_IsString(value)) {
+        cap_scheduler_kind_from_string(value->valuestring, &item->kind);
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "start_at_ms");
+    if (cJSON_IsNumber(value)) {
+        item->start_at_ms = (int64_t)value->valuedouble;
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "end_at_ms");
+    if (cJSON_IsNumber(value)) {
+        item->end_at_ms = (int64_t)value->valuedouble;
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "interval_ms");
+    if (cJSON_IsNumber(value)) {
+        item->interval_ms = (int64_t)value->valuedouble;
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "cron_expr");
+    if (cJSON_IsString(value)) {
+        strlcpy(item->cron_expr, value->valuestring, sizeof(item->cron_expr));
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "event_type");
+    if (cJSON_IsString(value)) {
+        strlcpy(item->event_type, value->valuestring, sizeof(item->event_type));
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "event_key");
+    if (cJSON_IsString(value)) {
+        strlcpy(item->event_key, value->valuestring, sizeof(item->event_key));
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "source_channel");
+    if (cJSON_IsString(value)) {
+        strlcpy(item->source_channel, value->valuestring, sizeof(item->source_channel));
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "chat_id");
+    if (cJSON_IsString(value)) {
+        strlcpy(item->chat_id, value->valuestring, sizeof(item->chat_id));
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "content_type");
+    if (cJSON_IsString(value)) {
+        strlcpy(item->content_type, value->valuestring, sizeof(item->content_type));
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "session_policy");
+    if (cJSON_IsString(value)) {
+        strlcpy(item->session_policy, value->valuestring, sizeof(item->session_policy));
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "text");
+    if (cJSON_IsString(value)) {
+        strlcpy(item->text, value->valuestring, sizeof(item->text));
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "payload_json");
+    if (cJSON_IsString(value)) {
+        strlcpy(item->payload_json, value->valuestring, sizeof(item->payload_json));
+    } else if (cJSON_IsObject(value)) {
+        char *rendered = cJSON_PrintUnformatted((cJSON *)value);
+        if (rendered) {
+            strlcpy(item->payload_json, rendered, sizeof(item->payload_json));
+            free(rendered);
+        }
+    }
+    value = cJSON_GetObjectItemCaseSensitive(node, "max_runs");
+    if (cJSON_IsNumber(value)) {
+        item->max_runs = value->valueint;
+    }
 }
 
 esp_err_t cap_scheduler_entry_to_json(const cap_scheduler_entry_t *entry, bool include_item, cJSON **out_json)

@@ -1,5 +1,6 @@
 import {
   Activity,
+  AudioLines,
   Blocks,
   Bot,
   DatabaseZap,
@@ -23,6 +24,7 @@ const IconStatus: Component = () => <Activity class={iconClass} />;
 const IconGear: Component = () => <Settings class={iconClass} />;
 const IconWifi: Component = () => <WifiPen class={iconClass} />;
 const IconLlm: Component = () => <Bot class={iconClass} />;
+const IconStt: Component = () => <AudioLines class={iconClass} />;
 const IconIm: Component = () => <MessageSquareCode class={iconClass} />;
 const IconSearch: Component = () => <Search class={iconClass} />;
 const IconWebhook: Component = () => <Webhook class={iconClass} />;
@@ -39,6 +41,7 @@ export type LeafNode = {
     | 'navStatus'
     | 'navBasic'
     | 'navLlm'
+    | 'navStt'
     | 'navIm'
     | 'navSearch'
     | 'navWebhook'
@@ -68,6 +71,7 @@ export const NAV_TREE: NavNode[] = [
     children: [
       { kind: 'leaf', id: 'basic', labelKey: 'navBasic', icon: IconWifi },
       { kind: 'leaf', id: 'llm', labelKey: 'navLlm', icon: IconLlm },
+      { kind: 'leaf', id: 'stt', labelKey: 'navStt', icon: IconStt },
       { kind: 'leaf', id: 'im', labelKey: 'navIm', icon: IconIm },
       { kind: 'leaf', id: 'search', labelKey: 'navSearch', icon: IconSearch },
       { kind: 'leaf', id: 'webhook', labelKey: 'navWebhook', icon: IconWebhook },

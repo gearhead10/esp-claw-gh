@@ -88,20 +88,40 @@ static const claw_cap_descriptor_t s_scheduler_descriptors[] = {
         .id = "scheduler_add",
         .name = "scheduler_add",
         .family = "scheduler",
-        .description = "Add one scheduler entry from schedule_json string and return runtime state.",
+        .description = "Schedule a reminder / event. Provide exactly one of delay_seconds (one-shot after N seconds), every_seconds (repeating interval), or cron (cron expression). The text field is delivered when the schedule fires.",
         .kind = CLAW_CAP_KIND_HYBRID,
         .cap_flags = CLAW_CAP_FLAG_CALLABLE_BY_LLM,
-        .input_schema_json = "{\"type\":\"object\",\"properties\":{\"schedule_json\":{\"type\":\"string\"}},\"required\":[\"schedule_json\"]}",
+        .input_schema_json =
+            "{\"type\":\"object\",\"properties\":{"
+            "\"delay_seconds\":{\"type\":\"number\",\"description\":\"Fire once after N seconds from now (one-shot reminder)\"},"
+            "\"every_seconds\":{\"type\":\"number\",\"description\":\"Fire repeatedly with this interval in seconds\"},"
+            "\"cron\":{\"type\":\"string\",\"description\":\"Cron expression for recurring fires\"},"
+            "\"id\":{\"type\":\"string\",\"description\":\"Optional id, auto-generated if omitted\"},"
+            "\"text\":{\"type\":\"string\",\"description\":\"Message text delivered when the schedule fires\"},"
+            "\"chat_id\":{\"type\":\"string\",\"description\":\"Optional target chat id; defaults to the chat that requested the schedule\"},"
+            "\"source_channel\":{\"type\":\"string\",\"description\":\"Optional channel (telegram, web, ...); defaults to current channel\"},"
+            "\"max_runs\":{\"type\":\"integer\",\"description\":\"Optional cap on total fires (interval/cron only)\"}"
+            "}}",
         .execute = cap_scheduler_execute_add,
     },
     {
         .id = "scheduler_update",
         .name = "scheduler_update",
         .family = "scheduler",
-        .description = "Update one scheduler entry from schedule_json string and return runtime state.",
+        .description = "Replace fields of an existing scheduler entry. Same input shape as scheduler_add; the existing id is required.",
         .kind = CLAW_CAP_KIND_HYBRID,
         .cap_flags = CLAW_CAP_FLAG_CALLABLE_BY_LLM,
-        .input_schema_json = "{\"type\":\"object\",\"properties\":{\"schedule_json\":{\"type\":\"string\"}},\"required\":[\"schedule_json\"]}",
+        .input_schema_json =
+            "{\"type\":\"object\",\"properties\":{"
+            "\"id\":{\"type\":\"string\"},"
+            "\"delay_seconds\":{\"type\":\"number\"},"
+            "\"every_seconds\":{\"type\":\"number\"},"
+            "\"cron\":{\"type\":\"string\"},"
+            "\"text\":{\"type\":\"string\"},"
+            "\"chat_id\":{\"type\":\"string\"},"
+            "\"source_channel\":{\"type\":\"string\"},"
+            "\"max_runs\":{\"type\":\"integer\"}"
+            "},\"required\":[\"id\"]}",
         .execute = cap_scheduler_execute_update,
     },
     {
@@ -672,29 +692,116 @@ static esp_err_t cap_scheduler_parse_id_input(const char *input_json, char *id, 
     return ESP_OK;
 }
 
-static esp_err_t cap_scheduler_parse_add_input(const char *input_json, cap_scheduler_item_t *item)
+static void cap_scheduler_parse_apply_shorthand(const cJSON *root, cap_scheduler_item_t *item)
+{
+    const cJSON *delay   = cJSON_GetObjectItemCaseSensitive(root, "delay_seconds");
+    const cJSON *at_ms   = cJSON_GetObjectItemCaseSensitive(root, "at_unix_ms");
+    const cJSON *every_s = cJSON_GetObjectItemCaseSensitive(root, "every_seconds");
+    const cJSON *every_ms = cJSON_GetObjectItemCaseSensitive(root, "every_ms");
+    const cJSON *cron    = cJSON_GetObjectItemCaseSensitive(root, "cron");
+
+    if (cJSON_IsNumber(delay) && delay->valuedouble > 0) {
+        item->kind = CAP_SCHEDULER_ITEM_ONCE;
+        item->start_at_ms = cap_scheduler_now_ms() + (int64_t)(delay->valuedouble * 1000.0);
+    } else if (cJSON_IsNumber(at_ms) && at_ms->valuedouble > 0) {
+        item->kind = CAP_SCHEDULER_ITEM_ONCE;
+        item->start_at_ms = (int64_t)at_ms->valuedouble;
+    } else if (cJSON_IsNumber(every_s) && every_s->valuedouble > 0) {
+        item->kind = CAP_SCHEDULER_ITEM_INTERVAL;
+        item->interval_ms = (int64_t)(every_s->valuedouble * 1000.0);
+    } else if (cJSON_IsNumber(every_ms) && every_ms->valuedouble > 0) {
+        item->kind = CAP_SCHEDULER_ITEM_INTERVAL;
+        item->interval_ms = (int64_t)every_ms->valuedouble;
+    } else if (cJSON_IsString(cron) && cron->valuestring && cron->valuestring[0]) {
+        item->kind = CAP_SCHEDULER_ITEM_CRON;
+        strlcpy(item->cron_expr, cron->valuestring, sizeof(item->cron_expr));
+    }
+}
+
+static void cap_scheduler_fill_validation_error(const cap_scheduler_item_t *item,
+                                                char *out_error,
+                                                size_t out_error_size)
+{
+    if (!out_error || out_error_size == 0) {
+        return;
+    }
+    if (!item->id[0]) {
+        snprintf(out_error, out_error_size, "internal: missing scheduler id");
+    } else if (item->kind == CAP_SCHEDULER_ITEM_ONCE && item->start_at_ms <= 0) {
+        snprintf(out_error, out_error_size,
+                 "missing time for kind=once: provide 'delay_seconds', 'at_unix_ms', or 'start_at_ms'");
+    } else if (item->kind == CAP_SCHEDULER_ITEM_INTERVAL && item->interval_ms <= 0) {
+        snprintf(out_error, out_error_size,
+                 "missing interval: provide 'every_seconds' or 'every_ms' (positive number)");
+    } else if (item->kind == CAP_SCHEDULER_ITEM_CRON && !item->cron_expr[0]) {
+        snprintf(out_error, out_error_size, "missing 'cron' expression for cron schedule");
+    } else {
+        snprintf(out_error, out_error_size,
+                 "validation failed; provide one of: delay_seconds, every_seconds, cron");
+    }
+}
+
+static esp_err_t cap_scheduler_parse_add_input(const char *input_json,
+                                               cap_scheduler_item_t *item,
+                                               const claw_cap_call_context_t *ctx,
+                                               char *out_error,
+                                               size_t out_error_size)
 {
     cJSON *root = NULL;
     const char *schedule_json = NULL;
+    const cJSON *id_node = NULL;
     esp_err_t err;
 
     if (!item) {
         return ESP_ERR_INVALID_ARG;
     }
+    if (out_error && out_error_size > 0) {
+        out_error[0] = '\0';
+    }
 
     root = cJSON_Parse(input_json ? input_json : "{}");
     if (!cJSON_IsObject(root)) {
         cJSON_Delete(root);
-        return ESP_ERR_INVALID_ARG;
-    }
-    schedule_json = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "schedule_json"));
-    if (!schedule_json || !schedule_json[0]) {
-        cJSON_Delete(root);
+        if (out_error) {
+            snprintf(out_error, out_error_size, "input must be a JSON object");
+        }
         return ESP_ERR_INVALID_ARG;
     }
 
-    err = cap_scheduler_parse_item_json_string(schedule_json, item);
+    schedule_json = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "schedule_json"));
+    if (schedule_json && schedule_json[0]) {
+        err = cap_scheduler_parse_item_json_string(schedule_json, item);
+        cJSON_Delete(root);
+        if (err != ESP_OK && out_error) {
+            snprintf(out_error, out_error_size,
+                     "schedule_json invalid (%s); prefer direct fields like delay_seconds",
+                     esp_err_to_name(err));
+        }
+        return err;
+    }
+
+    cap_scheduler_parse_item_fields(root, item);
+    cap_scheduler_parse_apply_shorthand(root, item);
+
+    id_node = cJSON_GetObjectItemCaseSensitive(root, "id");
+    if (!cJSON_IsString(id_node) || !id_node->valuestring || !id_node->valuestring[0]) {
+        snprintf(item->id, sizeof(item->id), "sched_%lld",
+                 (long long)cap_scheduler_now_ms());
+    }
+
+    if (ctx && !item->chat_id[0] && ctx->chat_id && ctx->chat_id[0]) {
+        strlcpy(item->chat_id, ctx->chat_id, sizeof(item->chat_id));
+    }
+    if (ctx && !item->source_channel[0] && ctx->channel && ctx->channel[0]) {
+        strlcpy(item->source_channel, ctx->channel, sizeof(item->source_channel));
+    }
     cJSON_Delete(root);
+
+    cap_scheduler_apply_defaults(item);
+    err = cap_scheduler_validate_item(item);
+    if (err != ESP_OK && out_error) {
+        cap_scheduler_fill_validation_error(item, out_error, out_error_size);
+    }
     return err;
 }
 
@@ -1258,36 +1365,71 @@ static esp_err_t cap_scheduler_execute_get(const char *input_json,
     return cap_scheduler_get_state_json(id, output, output_size);
 }
 
+static void cap_scheduler_write_error_json(char *output, size_t output_size,
+                                           const char *error, const char *hint)
+{
+    if (!output || output_size == 0) {
+        return;
+    }
+    cJSON *root = cJSON_CreateObject();
+    char *rendered = NULL;
+    if (root) {
+        cJSON_AddBoolToObject(root, "ok", false);
+        cJSON_AddStringToObject(root, "error", error ? error : "unknown error");
+        if (hint && hint[0]) {
+            cJSON_AddStringToObject(root, "hint", hint);
+        }
+        rendered = cJSON_PrintUnformatted(root);
+        cJSON_Delete(root);
+    }
+    if (rendered) {
+        strlcpy(output, rendered, output_size);
+        free(rendered);
+    } else {
+        snprintf(output, output_size, "{\"ok\":false,\"error\":\"%s\"}",
+                 error ? error : "unknown");
+    }
+}
+
+#define CAP_SCHEDULER_SCHEMA_HINT \
+    "Use shorthand: delay_seconds (once after N seconds), every_seconds (interval), or cron. " \
+    "Optional: id (auto if omitted), text, chat_id, source_channel."
+
 static esp_err_t cap_scheduler_execute_add(const char *input_json,
                                            const claw_cap_call_context_t *ctx,
                                            char *output,
                                            size_t output_size)
 {
     cap_scheduler_item_t *item = NULL;
+    char err_msg[160] = {0};
     esp_err_t err;
-
-    (void)ctx;
 
     item = calloc(1, sizeof(*item));
     if (!item) {
         return ESP_ERR_NO_MEM;
     }
 
-    err = cap_scheduler_parse_add_input(input_json, item);
+    err = cap_scheduler_parse_add_input(input_json, item, ctx, err_msg, sizeof(err_msg));
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "scheduler add input invalid: %s", esp_err_to_name(err));
-        goto cleanup;
+        ESP_LOGE(TAG, "scheduler add input invalid: %s (%s)", esp_err_to_name(err), err_msg);
+        cap_scheduler_write_error_json(output, output_size,
+                                       err_msg[0] ? err_msg : "invalid input",
+                                       CAP_SCHEDULER_SCHEMA_HINT);
+        free(item);
+        return ESP_OK;
     }
 
     err = cap_scheduler_add(item);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "scheduler add failed: %s", esp_err_to_name(err));
-        goto cleanup;
+        snprintf(err_msg, sizeof(err_msg), "scheduler_add() returned %s",
+                 esp_err_to_name(err));
+        cap_scheduler_write_error_json(output, output_size, err_msg, NULL);
+        free(item);
+        return ESP_OK;
     }
 
     err = cap_scheduler_get_state_json(item->id, output, output_size);
-
-cleanup:
     free(item);
     return err;
 }
@@ -1298,30 +1440,35 @@ static esp_err_t cap_scheduler_execute_update(const char *input_json,
                                               size_t output_size)
 {
     cap_scheduler_item_t *item = NULL;
+    char err_msg[160] = {0};
     esp_err_t err;
-
-    (void)ctx;
 
     item = calloc(1, sizeof(*item));
     if (!item) {
         return ESP_ERR_NO_MEM;
     }
 
-    err = cap_scheduler_parse_add_input(input_json, item);
+    err = cap_scheduler_parse_add_input(input_json, item, ctx, err_msg, sizeof(err_msg));
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "scheduler update input invalid: %s", esp_err_to_name(err));
-        goto cleanup;
+        ESP_LOGE(TAG, "scheduler update input invalid: %s (%s)", esp_err_to_name(err), err_msg);
+        cap_scheduler_write_error_json(output, output_size,
+                                       err_msg[0] ? err_msg : "invalid input",
+                                       CAP_SCHEDULER_SCHEMA_HINT);
+        free(item);
+        return ESP_OK;
     }
 
     err = cap_scheduler_update(item);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "scheduler update failed: %s", esp_err_to_name(err));
-        goto cleanup;
+        snprintf(err_msg, sizeof(err_msg), "scheduler_update() returned %s",
+                 esp_err_to_name(err));
+        cap_scheduler_write_error_json(output, output_size, err_msg, NULL);
+        free(item);
+        return ESP_OK;
     }
 
     err = cap_scheduler_get_state_json(item->id, output, output_size);
-
-cleanup:
     free(item);
     return err;
 }

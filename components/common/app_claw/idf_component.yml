@@ -64,6 +64,11 @@ dependencies:
       - if: $CONFIG{APP_CLAW_CAP_SYSTEM} == True
     path: ../../claw_capabilities/cap_system
 
+  cap_diagnose:
+    rules:
+      - if: $CONFIG{APP_CLAW_CAP_DIAGNOSE} == True
+    path: ../../claw_capabilities/cap_diagnose
+
   cap_time:
     rules:
       - if: $CONFIG{APP_CLAW_CAP_TIME} == True
@@ -99,6 +104,11 @@ dependencies:
 
   lua_module_builder:
     path: ../../common/lua_module_builder
+
+  audio_stt:
+    rules:
+      - if: $CONFIG{APP_CLAW_AUDIO_STT} == True
+    path: ../../common/audio_stt
 
   emote:
     rules:

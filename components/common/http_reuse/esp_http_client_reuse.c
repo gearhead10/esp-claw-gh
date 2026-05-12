@@ -47,10 +47,26 @@ typedef struct http_reuse_node {
     bool                     leased;
     /** True if the current lease was satisfied by a pool hit; controls perform retry. */
     bool                     reused_in_current_lease;
+    /** Event handler bound to @p client at init time. Pool entries can only satisfy
+     *  a new lease if the requested handler matches — esp_http_client has no public
+     *  API to swap the handler after init, so a mismatch must force a fresh client
+     *  to avoid the new caller's user_data being interpreted by the old handler. */
+    http_event_handle_cb event_handler;
 } http_reuse_node_t;
 
 static STAILQ_HEAD(http_reuse_head, http_reuse_node)
     s_pool = STAILQ_HEAD_INITIALIZER(s_pool);
+
+/** Tracks (client → event_handler) for non-pooled handles so cleanup can transfer
+ *  the handler into the pool node without an esp_http_client public API. */
+typedef struct http_reuse_init_tracker {
+    STAILQ_ENTRY(http_reuse_init_tracker) list;
+    esp_http_client_handle_t client;
+    http_event_handle_cb     event_handler;
+} http_reuse_init_tracker_t;
+
+static STAILQ_HEAD(http_reuse_init_head, http_reuse_init_tracker)
+    s_init_trackers = STAILQ_HEAD_INITIALIZER(s_init_trackers);
 
 static SemaphoreHandle_t s_pool_mutex            = NULL;
 static portMUX_TYPE      s_pool_mutex_init_mux   = portMUX_INITIALIZER_UNLOCKED;
@@ -224,7 +240,42 @@ static void node_free(http_reuse_node_t *node, bool destroy_client)
     free(node);
 }
 
-static esp_http_client_handle_t pool_take_locked(const http_reuse_endpoint_t *target)
+/** Caller must hold @ref pool_mutex. */
+static void init_tracker_set_locked(esp_http_client_handle_t client, http_event_handle_cb handler)
+{
+    http_reuse_init_tracker_t *t;
+    STAILQ_FOREACH(t, &s_init_trackers, list) {
+        if (t->client == client) {
+            t->event_handler = handler;
+            return;
+        }
+    }
+    t = calloc(1, sizeof(*t));
+    if (!t) {
+        return;
+    }
+    t->client        = client;
+    t->event_handler = handler;
+    STAILQ_INSERT_TAIL(&s_init_trackers, t, list);
+}
+
+/** Caller must hold @ref pool_mutex. */
+static http_event_handle_cb init_tracker_take_locked(esp_http_client_handle_t client)
+{
+    http_reuse_init_tracker_t *t;
+    STAILQ_FOREACH(t, &s_init_trackers, list) {
+        if (t->client == client) {
+            http_event_handle_cb h = t->event_handler;
+            STAILQ_REMOVE(&s_init_trackers, t, http_reuse_init_tracker, list);
+            free(t);
+            return h;
+        }
+    }
+    return NULL;
+}
+
+static esp_http_client_handle_t pool_take_locked(const http_reuse_endpoint_t *target,
+                                                 http_event_handle_cb requested_handler)
 {
     http_reuse_node_t *node;
     http_reuse_node_t *next;
@@ -240,6 +291,20 @@ static esp_http_client_handle_t pool_take_locked(const http_reuse_endpoint_t *ta
             continue;
         }
         if (!endpoint_match(target, &node->endpoint)) {
+            continue;
+        }
+
+        if (node->event_handler != requested_handler) {
+            /* esp_http_client_t has no public API to swap the event_handler after
+             * init, so a pooled client whose handler differs from the new lease's
+             * cannot be safely reused — the old handler would run with the new
+             * caller's user_data, casting it to the wrong struct and corrupting
+             * the heap. Drop this entry and let the caller fresh-init instead. */
+            ESP_LOGD(TAG,
+                     "drop pooled %p: event_handler %p != requested %p",
+                     node->client, node->event_handler, requested_handler);
+            STAILQ_REMOVE(&s_pool, node, http_reuse_node, list);
+            node_free(node, true);
             continue;
         }
 
@@ -292,7 +357,8 @@ static void pool_detach_and_destroy_client_locked(esp_http_client_handle_t clien
  * (idle reuse slots).
  */
 static esp_err_t pool_insert_locked(esp_http_client_handle_t client, http_reuse_endpoint_t *ep,
-                                    bool is_persistent, bool leased)
+                                    bool is_persistent, bool leased,
+                                    http_event_handle_cb event_handler)
 {
     if (!client || !ep) {
         return ESP_ERR_INVALID_ARG;
@@ -333,6 +399,7 @@ static esp_err_t pool_insert_locked(esp_http_client_handle_t client, http_reuse_
     new_node->is_persistent           = is_persistent;
     new_node->leased                  = leased;
     new_node->reused_in_current_lease = false; /* freshly inserted, not a pool hit */
+    new_node->event_handler           = event_handler;
     STAILQ_INSERT_TAIL(&s_pool, new_node, list);
     return ESP_OK;
 }
@@ -370,7 +437,7 @@ esp_http_client_handle_t __wrap_esp_http_client_init(const esp_http_client_confi
     }
 
     pool_mutex_take();
-    esp_http_client_handle_t client = pool_take_locked(&target);
+    esp_http_client_handle_t client = pool_take_locked(&target, cfg.event_handler);
     pool_mutex_give();
 
     if (client) {
@@ -437,6 +504,12 @@ esp_http_client_handle_t __wrap_esp_http_client_init(const esp_http_client_confi
         return NULL;
     }
 
+    /* Track the event_handler bound at init time so cleanup can stamp it onto the
+     * pool node — pool_take_locked uses this to reject reuse when handlers differ. */
+    pool_mutex_take();
+    init_tracker_set_locked(new_client, cfg.event_handler);
+    pool_mutex_give();
+
     /*
      * Do not register in the pool at init. Handles that are never cleaned up
      * would fill CONFIG_HTTP_REUSE_MAX_POOL with leased non-persistent slots
@@ -476,9 +549,10 @@ esp_err_t __wrap_esp_http_client_cleanup(esp_http_client_handle_t client)
         ESP_LOGD(TAG, "idle persistent in pool %p", client);
         return ESP_OK;
     }
+    /* Not in pool: either never registered (new init path) or foreign handle. */
+    http_event_handle_cb tracked_handler = init_tracker_take_locked(client);
     pool_mutex_give();
 
-    /* Not in pool: either never registered (new init path) or foreign handle. */
     if (!persistent) {
         ESP_LOGD(TAG, "cleanup destroy (not in pool) %p", client);
         return __real_esp_http_client_cleanup(client);
@@ -493,7 +567,7 @@ esp_err_t __wrap_esp_http_client_cleanup(esp_http_client_handle_t client)
     }
 
     pool_mutex_take();
-    esp_err_t pin_err = pool_insert_locked(client, &ep, true, false);
+    esp_err_t pin_err = pool_insert_locked(client, &ep, true, false, tracked_handler);
     pool_mutex_give();
     if (pin_err != ESP_OK) {
         ESP_LOGE(TAG, "pool insert persistent %p failed (%s), destroy", client, esp_err_to_name(pin_err));
