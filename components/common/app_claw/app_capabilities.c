@@ -65,6 +65,9 @@
 #if CONFIG_APP_CLAW_CAP_WEB_SEARCH
 #include "cap_web_search.h"
 #endif
+#if CONFIG_APP_CLAW_CAP_BLE_SCAN
+#include "cap_ble_scan.h"
+#endif
 #if CONFIG_APP_CLAW_CAP_WEBHOOK
 #include "cap_webhook.h"
 #endif
@@ -542,6 +545,24 @@ static esp_err_t app_cap_register_web_search(const app_claw_config_t *config,
 }
 #endif
 
+#if CONFIG_APP_CLAW_CAP_BLE_SCAN
+static esp_err_t app_cap_prepare_ble_scan(const app_claw_config_t *config,
+                                          const app_claw_storage_paths_t *paths)
+{
+    (void)config;
+    (void)paths;
+    return cap_ble_scan_start();
+}
+
+static esp_err_t app_cap_register_ble_scan(const app_claw_config_t *config,
+                                           const app_claw_storage_paths_t *paths)
+{
+    (void)config;
+    (void)paths;
+    return cap_ble_scan_register_group();
+}
+#endif
+
 #if CONFIG_APP_CLAW_CAP_WEBHOOK
 static esp_err_t app_cap_prepare_webhook(const app_claw_config_t *config,
                                          const app_claw_storage_paths_t *paths)
@@ -631,6 +652,9 @@ static const app_capability_group_entry_t s_capability_group_entries[] = {
 #if CONFIG_APP_CLAW_CAP_WEB_SEARCH
     { "cap_web_search", "Web Search", "Register web search cap", true, app_cap_prepare_web_search, app_cap_register_web_search },
 #endif
+#if CONFIG_APP_CLAW_CAP_BLE_SCAN
+    { "cap_ble_scan", "BLE Scan", "Register BLE scan cap", true, app_cap_prepare_ble_scan, app_cap_register_ble_scan },
+#endif
 #if CONFIG_APP_CLAW_CAP_WEBHOOK
     { "cap_webhook", "Webhook", "Register webhook cap", true, app_cap_prepare_webhook, app_cap_register_webhook },
 #endif
@@ -693,6 +717,9 @@ static const app_capability_group_info_t s_capability_group_infos[] = {
 #endif
 #if CONFIG_APP_CLAW_CAP_WEB_SEARCH
     { "cap_web_search", "Web Search", true },
+#endif
+#if CONFIG_APP_CLAW_CAP_BLE_SCAN
+    { "cap_ble_scan", "BLE Scan", true },
 #endif
 #if CONFIG_APP_CLAW_CAP_WEBHOOK
     { "cap_webhook", "Webhook", true },

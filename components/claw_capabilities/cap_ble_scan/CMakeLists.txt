@@ -1,0 +1,13 @@
+idf_component_register(
+    SRCS
+        "src/cap_ble_scan.c"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        claw_cap
+        json
+    PRIV_REQUIRES
+        bt
+        esp_timer
+        nvs_flash
+)

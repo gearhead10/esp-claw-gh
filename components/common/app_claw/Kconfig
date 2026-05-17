@@ -150,6 +150,16 @@ menu "App Claw Config"
                 Enable the web search capability and keep app_claw's direct dependency
                 on cap_web_search.
 
+        config APP_CLAW_CAP_BLE_SCAN
+            bool "Enable BLE scanner capability"
+            depends on SOC_BLE_SUPPORTED
+            select BT_ENABLED
+            select BT_NIMBLE_ENABLED
+            default n
+            help
+                Enable the BLE scan capability so the LLM can discover nearby
+                Bluetooth Low Energy devices.
+
         config APP_CLAW_CAP_WEBHOOK
             bool "Enable webhook capability"
             default y

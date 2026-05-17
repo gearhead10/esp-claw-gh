@@ -1,0 +1,31 @@
+menu "Claw BLE Scan Capability"
+
+config CLAW_CAP_BLE_SCAN_MAX_RESULTS
+    int "Max devices retained per scan"
+    default 32
+    range 8 128
+    help
+        Upper bound on the number of distinct BLE devices retained in one
+        scan window. Beyond this limit further advertising packets are
+        dropped and the result JSON sets truncated=true. Higher values
+        cost ~96 bytes of heap per entry.
+
+config CLAW_CAP_BLE_SCAN_DEFAULT_DURATION_MS
+    int "Default scan duration (ms)"
+    default 5000
+    range 500 60000
+    help
+        Default window length used when the LLM does not specify
+        duration_ms in the call input. Clamped to [500, 60000] at
+        runtime regardless of this setting.
+
+config CLAW_CAP_BLE_SCAN_PASSIVE
+    bool "Use passive scanning by default"
+    default y
+    help
+        Passive scan only listens; active scan also issues SCAN_REQ to
+        peers that advertise scannable PDUs (gets richer name / mfg data
+        but is detectable and a bit more power-hungry). Per-call override
+        is exposed via the "active" input field.
+
+endmenu
