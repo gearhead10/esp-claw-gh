@@ -3,17 +3,20 @@ import * as i18n from '@solid-primitives/i18n';
 
 import { en, type Dict } from './en';
 import { zhCn } from './zh-cn';
+import { es } from './es';
 
-export type Locale = 'en' | 'zh-cn';
+export type Locale = 'en' | 'zh-cn' | 'es';
 
 const dictionaries: Record<Locale, Dict> = {
   en,
   'zh-cn': zhCn,
+  es,
 };
 
 export const LOCALES: { id: Locale; label: string }[] = [
   { id: 'en', label: 'English' },
   { id: 'zh-cn', label: '简体中文' },
+  { id: 'es', label: 'Español' },
 ];
 
 const STORAGE_KEY = 'esp-claw-lang';
@@ -36,6 +39,7 @@ function detectLocale(): Locale {
 
   const nav = (navigator.language || '').toLowerCase();
   if (nav.startsWith('zh')) return 'zh-cn';
+  if (nav.startsWith('es')) return 'es';
   return 'en';
 }
 
@@ -56,7 +60,8 @@ export function setLocale(next: Locale) {
   } catch {
     /* ignore */
   }
-  document.documentElement.lang = next === 'zh-cn' ? 'zh-CN' : 'en';
+  document.documentElement.lang =
+    next === 'zh-cn' ? 'zh-CN' : next === 'es' ? 'es' : 'en';
   document.title = dictionaries[next].docTitle;
 }
 
